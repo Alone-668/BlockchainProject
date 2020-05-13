@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/binary"
 	"log"
 	"time"
@@ -39,7 +38,11 @@ func NewBlock(data string, prevBlockHash []byte) *Block {
 		Hash:       []byte{},
 		Data:       []byte(data),
 	}
-	block.setHash()
+	//block.setHash()
+	pow := Newproofofwork(&block)
+	hash, nonce := pow.Run()
+	block.Hash = hash
+	block.Nonce = nonce
 	return &block
 
 }
@@ -52,7 +55,8 @@ func Uint64toByte(num uint64) []byte {
 	return buffer.Bytes()
 
 }
-func (block *Block) setHash() {
+
+/*func (block *Block) setHash() {
 	temp := [][]byte{
 		Uint64toByte(block.Version),
 		block.PrevHash,
@@ -67,4 +71,4 @@ func (block *Block) setHash() {
 
 	block.Hash = myhash[:]
 
-}
+}*/
