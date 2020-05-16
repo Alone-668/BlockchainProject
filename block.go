@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/gob"
 	"log"
 	"time"
 )
@@ -25,6 +26,30 @@ type Block struct {
 	Hash []byte
 	//b. 数据
 	Data []byte
+}
+
+func (block *Block) Serialize() []byte {
+	var bufer bytes.Buffer
+	encoder := gob.NewEncoder(&bufer)
+	err := encoder.Encode(&block)
+	if err != nil {
+		log.Panic("编码失败")
+	}
+	return bufer.Bytes()
+}
+//反序列化
+func Deserialize(data []byte) Block {
+
+	decoder := gob.NewDecoder(bytes.NewReader(data))
+
+	var block Block
+	//2. 使用解码器进行解码
+	err := decoder.Decode(&block)
+	if err != nil {
+		log.Panic("解码出错!")
+	}
+
+	return block
 }
 
 func NewBlock(data string, prevBlockHash []byte) *Block {
