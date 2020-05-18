@@ -28,7 +28,7 @@ func (it *BlockchainIterator)Next() *Block {
 		}
 		blockTem := bucket.Get(it.curternHashPointer)
 		block = Deserialize(blockTem)
-
+		//指针前移
 		it.curternHashPointer = block.PrevHash
 		return nil
 

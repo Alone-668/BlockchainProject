@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/gob"
 	"log"
@@ -24,8 +25,9 @@ type Block struct {
 
 	//a. 当前区块哈希,正常比特币区块中没有当前区块的哈希，我们为了是方便做了简化！
 	Hash []byte
-	//b. 数据
-	Data []byte
+	//b. 交易数组
+	//Data []byte
+	Transactions []*Transaction
 }
 
 func (block *Block) Serialize() []byte {
@@ -52,7 +54,7 @@ func Deserialize(data []byte) Block {
 	return block
 }
 
-func NewBlock(data string, prevBlockHash []byte) *Block {
+func NewBlock(txs []*Transaction, prevBlockHash []byte) *Block {
 	block := Block{
 		Version:    00,
 		PrevHash:   prevBlockHash,
@@ -61,9 +63,10 @@ func NewBlock(data string, prevBlockHash []byte) *Block {
 		Difficulty: 00,
 		Nonce:      00,
 		Hash:       []byte{},
-		Data:       []byte(data),
+		Transactions: txs,
 	}
 	//block.setHash()
+	block.MerkelRoot = block.MakeMerkelRoot()
 	pow := Newproofofwork(&block)
 	hash, nonce := pow.Run()
 	block.Hash = hash
@@ -97,3 +100,15 @@ func Uint64toByte(num uint64) []byte {
 	block.Hash = myhash[:]
 
 }*/
+//模拟梅克尔根，只是对交易的数据做简单的拼接，而不做二叉树处理！
+//func (block *Block) MakeMerkelRoot() []byte {
+func (block *Block)MakeMerkelRoot() []byte {
+	var info []byte
+	for _,tx:= range block.Transactions{
+		//拼接整体交易的ID（交易结构体Hash）
+		info = append(info, tx.TXID...)
+	}
+	hash := sha256.Sum256(info)
+	return hash[:]
+
+}

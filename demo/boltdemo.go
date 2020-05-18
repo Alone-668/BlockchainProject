@@ -7,7 +7,7 @@ import (
 
 func main() {
 	//1. 打开数据库
-	db, err := bolt.Open("bolt.db", 0600, nil)
+	db, err := bolt.Open("demo/bolt.db", 0600, nil)
 	defer db.Close()
 
 	if err != nil {
