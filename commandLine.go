@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"time"
 )
 
 //func (cli *CLI)AddBlock(data string)  {
@@ -27,8 +26,10 @@ func (cli *CLI) PrinBlockChainReverse() {
 	for {
 		//返回区块，左移
 		block := it.Next()
-
-		fmt.Printf("===========================\n\n")
+		for _, tx := range block.Transactions {
+			fmt.Println(tx)
+		}
+		/*fmt.Printf("===========================\n\n")
 		fmt.Printf("版本号: %d\n", block.Version)
 		fmt.Printf("前区块哈希值: %x\n", block.PrevHash)
 		fmt.Printf("梅克尔根: %x\n", block.MerkelRoot)
@@ -37,7 +38,7 @@ func (cli *CLI) PrinBlockChainReverse() {
 		fmt.Printf("难度值(随便写的）: %d\n", block.Difficulty)
 		fmt.Printf("随机数 : %d\n", block.Nonce)
 		fmt.Printf("当前区块哈希值: %x\n", block.Hash)
-		fmt.Printf("区块数据 :%s\n", block.Transactions[0].TXInputs[0].PubKey)
+		fmt.Printf("区块数据 :%s\n", block.Transactions[0].TXInputs[0].PubKey)*/
 
 		if len(block.PrevHash) == 0 {
 			fmt.Printf("区块链遍历结束！")

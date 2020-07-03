@@ -3,11 +3,14 @@ package main
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/gob"
 	"fmt"
 	"log"
+	"math/big"
+	"strings"
 )
 
 const reward = 50.0
@@ -199,4 +202,79 @@ func (tx *Transaction) TrimmedCopy() Transaction {
 		outputs= append(outputs,output)
 	}
 	return Transaction{tx.TXID,inputs,outputs}
+}
+
+func (tx *Transaction) Verify(preTxs map[string]Transaction) bool {
+	if tx.IsCoinBase() {
+		return true
+	}
+
+	//1. 得到签名的数据
+	txCopy := tx.TrimmedCopy()
+
+	for i, input := range tx.TXInputs {
+		prevTX := preTxs[string(input.TXid)]
+		if len(prevTX.TXID) == 0 {
+			log.Panic("引用的交易无效")
+		}
+
+		txCopy.TXInputs[i].PubKey = prevTX.TXOutputs[input.Index].PubKeyHash
+		txCopy.setHash()
+		dataHash := txCopy.TXID
+		//2. 得到Signature, 反推会r,s
+		signature := input.Signature //拆，r,s
+		//3. 拆解PubKey, X, Y 得到原生公钥
+		pubKey := input.PubKey //拆，X, Y
+
+
+		//1. 定义两个辅助的big.int
+		r := big.Int{}
+		s := big.Int{}
+
+		//2. 拆分我们signature，平均分，前半部分给r, 后半部分给s
+		r.SetBytes(signature[:len(signature)/2 ])
+		s.SetBytes(signature[len(signature)/2:])
+
+
+		//a. 定义两个辅助的big.int
+		X := big.Int{}
+		Y := big.Int{}
+
+		//b. pubKey，平均分，前半部分给X, 后半部分给Y
+		X.SetBytes(pubKey[:len(pubKey)/2 ])
+		Y.SetBytes(pubKey[len(pubKey)/2:])
+
+		//还原原始的公钥
+		pubKeyOrigin := ecdsa.PublicKey{elliptic.P256(), &X, &Y}
+
+		//4. Verify
+		if !ecdsa.Verify(&pubKeyOrigin, dataHash, &r, &s) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (tx Transaction) String() string {
+	var lines []string
+
+	lines = append(lines, fmt.Sprintf("--- Transaction %x:", tx.TXID))
+
+	for i, input := range tx.TXInputs {
+
+		lines = append(lines, fmt.Sprintf("     Input %d:", i))
+		lines = append(lines, fmt.Sprintf("       TXID:      %x", input.TXid))
+		lines = append(lines, fmt.Sprintf("       Out:       %d", input.Index))
+		lines = append(lines, fmt.Sprintf("       Signature: %x", input.Signature))
+		lines = append(lines, fmt.Sprintf("       PubKey:    %x", input.PubKey))
+	}
+
+	for i, output := range tx.TXOutputs{
+		lines = append(lines, fmt.Sprintf("     Output %d:", i))
+		lines = append(lines, fmt.Sprintf("       Value:  %f", output.Value))
+		lines = append(lines, fmt.Sprintf("       Script: %x", output.PubKeyHash))
+	}
+
+	return strings.Join(lines, "\n")
 }
