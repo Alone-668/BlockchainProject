@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/gob"
 	"fmt"
@@ -118,7 +120,7 @@ func NewTransaction(from, to string, amount float64, bc *BlockChain) *Transactio
 
 	//3. 得到对应的公钥，私钥
 	pubKey := wallet.PubKey
-	//privateKey := wallet.Private //稍后再用
+	privateKey := wallet.Private //稍后再用
 
 	//传递公钥的哈希，而不是传递地址
 	pubKeyHash := HashPubKey(pubKey)
@@ -150,5 +152,51 @@ func NewTransaction(from, to string, amount float64, bc *BlockChain) *Transactio
 	}
 	tx := Transaction{[]byte{}, inputs, outputs}
 	tx.setHash()
+
+
+	bc.SignTransaction(tx,privateKey)
+
+
 	return &tx
+}
+func (tx *Transaction)Sign(privateKey *ecdsa.PrivateKey, preTXs map[string]Transaction)  {
+
+	txCopy:=tx.TrimmedCopy()
+	//2. 循环遍历txCopy的inputs，得到这个input索引的output的公钥哈希,并赋值给要签名TX的公钥
+	for i,input:=range txCopy.TXInputs{
+		preTX := preTXs[string(input.TXid)]
+		if len(preTX.TXID)==0 {
+			log.Panic("引用的交易无效")
+		}
+		//先将输出TX复制（变成输入交易），然后把每个交易的signature和pubKey设为nil，
+		//将输出交易的公钥hash赋值给 复制过得TX（输入交易） 的公钥字段
+		txCopy.TXInputs[i].PubKey = preTX.TXOutputs[input.Index].PubKeyHash
+		//3. 生成要签名的数据。要签名的数据一定是哈希值
+		//a. 我们对每一个input都要签名一次，签名的数据是由当前input引用的output的哈希+当前的outputs（都承载在当前这个txCopy里面）
+		//b. 要对这个拼好的txCopy进行哈希处理，SetHash得到TXID，这个TXID就是我们要签名最终数据。
+
+		txCopy.setHash()
+		//还原，以免影响后面input的签名
+		txCopy.TXInputs[i].PubKey = nil
+		signData := txCopy.TXID
+		r, s, err := ecdsa.Sign(rand.Reader, privateKey, signData)
+		if err != nil {
+			log.Panic(err)
+		}
+		signNature:=append(r.Bytes(),s.Bytes()...)
+		txCopy.TXInputs[i].Signature = signNature
+	}
+
+}
+
+func (tx *Transaction) TrimmedCopy() Transaction {
+	var inputs []TXInput
+	var outputs []TXOutput
+	for _,input :=range tx.TXInputs{
+		inputs=append(inputs,TXInput{input.TXid,input.Index,nil,nil})
+	}
+	for _,output:=range tx.TXOutputs{
+		outputs= append(outputs,output)
+	}
+	return Transaction{tx.TXID,inputs,outputs}
 }

@@ -3,6 +3,8 @@ package main
 import (
 	"BlockchainProject/bolt"
 	"bytes"
+	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -255,4 +257,47 @@ func (bc *BlockChain)FindUTXOTransactions(senderPubKeyHash []byte) []*Transactio
 	}
 
 	return txs
+}
+
+func (bc *BlockChain) FindTransactionByTxid(txid []byte) (Transaction,error) {
+	itertor := bc.NewItertor()
+
+	for  {
+
+		block := itertor.Next()
+		for _,tx:=range block.Transactions{
+			if bytes.Equal(tx.TXID,txid) {
+				return *tx,nil
+			}
+		}
+		if len(block.PrevHash) == 0 {
+			fmt.Printf("区块链遍历结束!\n")
+			break
+		}
+
+	}
+
+	return Transaction{}, errors.New("无效的交易id，请检查!")
+}
+
+func (bc *BlockChain) SignTransaction(tx Transaction, privateKey *ecdsa.PrivateKey) {
+	preTXs := make(map[string]Transaction)
+	for _,input:= range tx.TXInputs{
+		tx,err:=bc.FindTransactionByTxid(input.TXid)
+		if err!=nil {
+			log.Panic(err)
+		}
+		preTXs[string(input.TXid)]=tx
+		//第一个input查找之后：prevTXs：
+		// map[2222]Transaction222
+
+		//第二个input查找之后：prevTXs：
+		// map[2222]Transaction222
+		// map[3333]Transaction333
+
+		//第三个input查找之后：prevTXs：
+		// map[2222]Transaction222
+		// map[3333]Transaction333(只不过是重新写了一次)
+	}
+	tx.Sign(privateKey,preTXs)
 }
